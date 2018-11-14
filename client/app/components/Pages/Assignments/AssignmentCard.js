@@ -9,7 +9,8 @@ class AssignmentCard extends Component {
         this.state = ({
             file: null,
             showUpload: true,
-            edit: false
+            edit: false,
+            marks: -1
         });
         this.onSubmit = this.onSubmit.bind(this);
         this.onChange = this.onChange.bind(this);
@@ -26,7 +27,8 @@ class AssignmentCard extends Component {
                 let submission = this.props.submissions[i];
                 if (submission.user==userID) {
                     this.setState({
-                        showUpload: false
+                        showUpload: false,
+                        marks: submission.marksObtained
                     });
                 }
             }
@@ -103,31 +105,13 @@ class AssignmentCard extends Component {
             Due Date: {this.props.dueDate}<br />
             Maximum Marks: {this.props.maxMarks}<br />
             Resource URL: <a href={'//' + this.props.resourceUrl}>{this.props.resourceUrl}</a><br /><br />
-                        {/* <Link className='btn btn-dark mx-2' to={{
-                            pathname: '/assignments/' + this.props.assignmentID,
-                            state: {
-                                uniqueID: this.props.uniqueID,
-                                name: this.props.name,
-                                details: this.props.details,
-                                type: this.props.type,
-                                dueDate: this.props.dueDate,
-                                maxMarks: this.props.maxMarks,
-                                resourceUrl: this.props.resourceUrl
-                            }
-                        }}> View Assignment </Link>
-                        <Link className='btn btn-dark mx-2' to={{
-                            pathname: '/assignments/submissions/' + this.props.uniqueID,
-                            state: {
-                                assignmentID: this.props.assignmentID
-                            }
-                        }}> View Submissions </Link> */}
-
                         <button type="button" className="btn btn-dark w-20 mx-3" onClick={this.editCallback}>Edit</button>
                         <button type="button" className="btn btn-dark w-20 mx-3" onClick={this.deleteCallback}>Delete</button>
                         <Link className='btn btn-dark w-20 mx-3' to={{
                             pathname: '/assignments/submissions/' + this.props.uniqueID,
                             state: {
-                                assignmentID: this.props.assignmentID
+                                assignmentID: this.props.assignmentID,
+                                maxMarks: this.props.maxMarks
                             }
                         }}> Evaluate </Link>
                     </div>
@@ -135,6 +119,7 @@ class AssignmentCard extends Component {
                 <br />
             </div>
         );
+        console.log(this.props);
         const studContent = (
             <div id="AssignmentCard">
                 <div className="card bg-light mx-auto">
@@ -144,6 +129,7 @@ class AssignmentCard extends Component {
             Type: {this.props.type}<br />
             Due Date: {this.props.dueDate}<br />
             Maximum Marks: {this.props.maxMarks}<br />
+            Marks Obtained: {this.state.marks==-1?"Not Evaluated":this.state.marks}<br />
             Resource URL: <a href={'//' + this.props.resourceUrl}>{this.props.resourceUrl}</a><br /><br />
                         {this.state.showUpload ? toUpload : <h6 className="text-info">Assignment Submitted!</h6>}
                     </div>
