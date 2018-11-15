@@ -15,7 +15,8 @@ let multer = require('multer');
 let upload = multer({dest: dir});
 
 module.exports = (app) => {
-    app.get('/api/assignments/:userID/courses', verifyUser, function(req, res) {
+    // show all courses for admin
+    app.get('/api/assignments/:userID/allCourses', verifyUser, function(req, res) {
         if (!req.params.userID) {
             return res.status(400).send({
                 success: false,
@@ -24,10 +25,6 @@ module.exports = (app) => {
         }
 
         let search = {isDeleted: false};
-
-        // Let all courses be visible to everyone
-        // if (req.role == 'student') search.students = req.user_id;
-        // else if (req.role == 'prof') search.professors = req.user_id;
         Course.find(search, (err, courses) => {
             if (err) {
                 return res.status(500).send({
@@ -36,7 +33,79 @@ module.exports = (app) => {
                 });
             }
             if (courses.length < 1) {
-                console.log(courses);
+                // console.log(courses);
+                return res.status(404).send({
+                    success: false,
+                    message: 'Error: No courses found for this user.'
+                });
+            }
+
+            return res.status(200).send({
+                success: true,
+                message: 'Details successfully retrieved.',
+                courses: {courses}
+            });
+        });
+    });
+
+    // show instructed courses to professor
+    app.get('/api/assignments/:userID/profCourses', verifyUser, function(req, res) {
+        if (!req.params.userID) {
+            return res.status(400).send({
+                success: false,
+                message: 'Error: userID not in parameters. Please try again.'
+            });
+        }
+
+        let search = {
+            professors: req.params.userID, 
+            isDeleted: false
+        };
+        Course.find(search, (err, courses) => {
+            if (err) {
+                return res.status(500).send({
+                    success: false,
+                    message: 'Error: Server error.'
+                });
+            }
+            if (courses.length < 1) {
+                // console.log(courses);
+                return res.status(404).send({
+                    success: false,
+                    message: 'Error: No courses found for this user.'
+                });
+            }
+
+            return res.status(200).send({
+                success: true,
+                message: 'Details successfully retrieved.',
+                courses: {courses}
+            });
+        });
+    });
+
+    // show assigned courses to student
+    app.get('/api/assignments/:userID/studentCourses', verifyUser, function(req, res) {
+        if (!req.params.userID) {
+            return res.status(400).send({
+                success: false,
+                message: 'Error: userID not in parameters. Please try again.'
+            });
+        }
+
+        let search = {
+            students: ObjectId(req.params.userID), 
+            isDeleted: false
+        };
+        Course.find(search, (err, courses) => {
+            if (err) {
+                return res.status(500).send({
+                    success: false,
+                    message: 'Error: Server error.'
+                });
+            }
+            if (courses.length < 1) {
+                // console.log(courses);
                 return res.status(404).send({
                     success: false,
                     message: 'Error: No courses found for this user.'
@@ -201,6 +270,7 @@ module.exports = (app) => {
                         department: req.body.department,
                         description: req.body.description,
                         resourcesUrl: req.body.resourcesUrl,
+                        semester: req.body.semester,
                         duration: {
                             startDate: req.body.duration.startDate,
                             endDate: req.body.duration.endDate
@@ -208,6 +278,13 @@ module.exports = (app) => {
                         details: {
                             credits: req.body.details.credits,
                             hours: req.body.details.hours
+                        },
+                        professors: req.body.professors,
+                        marks: {
+                            t1: req.body.marks.t1,
+                            t2: req.body.marks.t2,
+                            assignment: req.body.marks.assignment,
+                            esa: req.body.marks.esa
                         }
                     };
 
@@ -232,14 +309,17 @@ module.exports = (app) => {
                 newCourse.code = req.body.code;
                 newCourse.department = req.body.department;
                 newCourse.description = req.body.description;
+                newCourse.semester = req.body.semester;
                 newCourse.resourcesUrl = req.body.resourcesUrl;
                 newCourse.duration.startDate = req.body.duration.startDate;
                 newCourse.duration.endDate = req.body.duration.endDate;
                 newCourse.details.credits = req.body.details.credits;
                 newCourse.details.hours = req.body.details.hours;
-                // This may cause profs to not be able to see courses
-                newCourse.professors.push(req.params.userID);
-                // console.log(newCourse)
+                newCourse.professors.push(req.body.professors);
+                newCourse.marks.t1 = req.body.marks.t1;
+                newCourse.marks.t2 = req.body.marks.t2;
+                newCourse.marks.assignment = req.body.marks.assignment;
+                newCourse.marks.esa = req.body.marks.esa;
 
                 newCourse.save((err, course) => {
                     if (err) {
@@ -358,7 +438,7 @@ module.exports = (app) => {
                 if (courseExists) {
                     continue;
                 }
-                if (!obj.name || !obj.startDate || !obj.endDate || !obj.credits || !obj.hours || !obj.department || !obj.resourcesUrl || !obj.description) {
+                if (!obj.profusn || !obj.t1 || !obj.t2 || !obj.assignment || !obj.esa || !obj.semester || !obj.name || !obj.startDate || !obj.endDate || !obj.credits || !obj.hours || !obj.department || !obj.resourcesUrl || !obj.description) {
                     console.log('Missing details for ' +obj.code);
                     continue;
                 }
@@ -385,17 +465,33 @@ module.exports = (app) => {
                 newCourse.duration.endDate = new Date(endDate[0], endDate[1], endDate[2]);
                 newCourse.details.credits = obj.credits;
                 newCourse.details.hours = obj.hours;
-                newCourse.professors.push(req.params.userID);
+                newCourse.marks.t1 = obj.t1;
+                newCourse.marks.t2 = obj.t2;
+                newCourse.marks.esa = obj.esa;
+                newCourse.marks.assignment = obj.assignment;
+                newCourse.marks.sem = obj.sem;
 
-                newCourse.save((err) => {
+                User.find({usn: obj.profusn.toUpperCase()}, function(err, users) {
                     if (err) {
                         return res.status(500).send({
                             success: false,
                             message: 'Error: Server error'
                         });
                     }
+
+                    console.log(users);
+                    newCourse.professors.push(users[0]._id);
+
+                    newCourse.save((err) => {
+                        if (err) {
+                            return res.status(500).send({
+                                success: false,
+                                message: 'Error: Server error'
+                            });
+                        }
+                    });
+                    console.log(obj.name+' successfully created');
                 });
-                console.log(obj.name+' successfully created');
             }
             fs.unlinkSync(req.file.path);
             return res.status(200).send({
@@ -579,6 +675,8 @@ module.exports = (app) => {
                 assignment.details = req.body.details;
                 assignment.maxMarks = req.body.maxMarks;
                 assignment.resourcesUrl = req.body.resourcesUrl;
+                // console.log("the questions in assignments.js are ---->",req.body.questions);
+                assignment.questions = req.body.questions;
                 assignment.duration.startDate = req.body.duration.startDate;
                 assignment.duration.endDate = req.body.duration.endDate;
                 assignment.POC = req.body.POC;
